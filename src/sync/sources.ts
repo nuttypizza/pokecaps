@@ -12,7 +12,10 @@ interface Page<T> {
   totalCount: number;
 }
 
-/** The Pokémon TCG API (pokemontcg.io). Primary source. */
+/**
+ * The Pokémon TCG API (pokemontcg.io). Deprecated: closed to new sign-ups, and
+ * existing keys stop working on 2027-03-01. Kept as an optional source.
+ */
 export class ApiSource implements CardSource {
   readonly name = "api" as const;
   constructor(
@@ -44,8 +47,8 @@ export class ApiSource implements CardSource {
 
 /**
  * The maintainers' data repository (github.com/PokemonTCG/pokemon-tcg-data),
- * which the API is built from. Same JSON shape. Used as a fallback when the
- * API is down or rate-limited.
+ * which the API is built from. Same JSON shape. The default source: free, no
+ * key, no rate limit worth worrying about.
  */
 export class GithubSource implements CardSource {
   readonly name = "github" as const;
