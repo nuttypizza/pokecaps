@@ -1,12 +1,12 @@
 import { eq, inArray, sql as dsql } from "drizzle-orm";
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "@/db/schema";
 import { cleanCard, flattenCard, flattenSet, gameplayHash, toIsoDate } from "./normalize";
 import { computeScope, isInScope } from "./scope";
 import { ApiSource, GithubSource } from "./sources";
 import type { ApiSet, CardSource } from "./types";
 
-type Db = PostgresJsDatabase<typeof schema>;
+type Db = NodePgDatabase<typeof schema>;
 
 export interface SyncOptions {
   /** "auto" tries the API and falls back to GitHub if the API can't list sets. */

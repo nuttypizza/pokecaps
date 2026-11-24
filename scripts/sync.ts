@@ -17,7 +17,7 @@ async function main() {
   const value = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
   const source = (value("source") ?? process.env.SYNC_SOURCE ?? "auto") as "api" | "github" | "auto";
 
-  const { db, sql } = await import("../src/db/client");
+  const { db, pool } = await import("../src/db/client");
   const { runSync } = await import("../src/sync/run");
   try {
     const r = await runSync(db, { source, full: flag("full"), scopeOnly: flag("scope-only") });
@@ -25,7 +25,7 @@ async function main() {
       `Done (run ${r.runId}, ${r.source}${r.setsFromFallback ? ` + github for ${r.setsFromFallback} set(s)` : ""}): ${r.setsFetched}/${r.setsSeen} sets fetched, ${r.cardsNew} new, ${r.cardsChanged} changed, ${r.cardsUnchanged} unchanged.`,
     );
   } finally {
-    await sql.end();
+    await pool.end();
   }
 }
 

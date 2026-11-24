@@ -1,14 +1,23 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { parseEnv } from "@neon/env";
+import { attachDatabasePool } from "@vercel/functions";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+import config from "../../neon";
 import * as schema from "./schema";
 
-const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local.");
+/**
+ * node-postgres pool, per the Neon guidance for apps on Vercel (Fluid compute):
+ * the app reads the pooled DATABASE_URL, and attachDatabasePool closes idle
+ * connections before a function instance is suspended. Migrations use the
+ * direct DATABASE_URL_UNPOOLED (see drizzle.config.ts).
+ */
+const { postgres } = parseEnv(config, ["DATABASE_URL"]);
 
-// Reuse one connection pool across hot reloads in development.
-const globalForDb = globalThis as unknown as { pokecapsSql?: ReturnType<typeof postgres> };
-const sql = globalForDb.pokecapsSql ?? postgres(url, { max: 5, prepare: false });
-if (process.env.NODE_ENV !== "production") globalForDb.pokecapsSql = sql;
+// Reuse one pool across hot reloads in development.
+const globalForDb = globalThis as unknown as { pokecapsPool?: Pool };
+const pool = globalForDb.pokecapsPool ?? new Pool({ connectionString: postgres.databaseUrl, max: 5 });
+if (process.env.NODE_ENV !== "production") globalForDb.pokecapsPool = pool;
+attachDatabasePool(pool);
 
-export const db = drizzle(sql, { schema });
-export { sql };
+export const db = drizzle(pool, { schema });
+export { pool };
