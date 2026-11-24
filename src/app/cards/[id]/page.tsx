@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getCard } from "@/lib/queries";
+import { sortTags, TagChip } from "@/components/tag-chips";
+import { effectsForCard, getCard } from "@/lib/queries";
 import type { ApiCard } from "@/sync/types";
 
 export default function CardPage({ params }: PageProps<"/cards/[id]">) {
@@ -14,8 +15,16 @@ export default function CardPage({ params }: PageProps<"/cards/[id]">) {
 
 async function CardDetail({ params }: { params: PageProps<"/cards/[id]">["params"] }) {
   const { id } = await params;
-  const row = await getCard(decodeURIComponent(id));
+  const cardId = decodeURIComponent(id);
+  const [row, effects] = await Promise.all([getCard(cardId), effectsForCard(cardId)]);
   if (!row) notFound();
+  const tagsFor = (key: string) => {
+    const e = effects.find((x) => x.id === `${cardId}#${key}`);
+    if (!e) return undefined;
+    const order = sortTags(e.tags.map((t) => t.tagId));
+    return order.map((tid) => e.tags.find((t) => t.tagId === tid)!);
+  };
+  const analyzed = effects.length > 0;
   const { card, set } = row;
   const data = row.data as ApiCard;
 
@@ -46,21 +55,25 @@ async function CardDetail({ params }: { params: PageProps<"/cards/[id]">["params
             {card.evolvesFrom && <p className="text-sm text-neutral-500">Evolves from {card.evolvesFrom}</p>}
           </div>
 
-          {data.abilities?.map((a) => (
-            <Effect key={a.name} kind={a.type} name={a.name} text={a.text} />
+          {data.abilities?.map((a, i) => (
+            <Effect key={`a${i}`} kind={a.type} name={a.name} text={a.text} tags={tagsFor(`ability${i}`)} analyzed={analyzed} />
           ))}
-          {data.attacks?.map((a) => (
+          {data.attacks?.map((a, i) => (
             <Effect
-              key={a.name}
+              key={`k${i}`}
               kind={`Attack · ${(a.cost ?? []).join(", ") || "no cost"}`}
               name={a.damage ? `${a.name} — ${a.damage}` : a.name}
               text={a.text}
+              tags={tagsFor(`attack${i}`)}
+              analyzed={analyzed}
             />
           ))}
-          {data.rules?.map((r, i) => <Effect key={i} kind="Rules" text={r} />)}
+          {data.rules?.map((r, i) => <Effect key={`r${i}`} kind="Rules" text={r} tags={tagsFor(`rule${i}`)} analyzed={analyzed} reminder />)}
 
-          <p className="rounded-md border border-dashed border-black/15 p-3 text-sm text-neutral-500 dark:border-white/20">
-            Capability tags arrive in phase 2.
+          <p className="text-xs text-neutral-500">
+            {analyzed
+              ? "Tags come from the automatic rule tagger. Hand edits arrive in phase 3."
+              : "This card hasn't been analyzed yet."}
           </p>
         </div>
       </div>
@@ -68,12 +81,39 @@ async function CardDetail({ params }: { params: PageProps<"/cards/[id]">["params
   );
 }
 
-function Effect({ kind, name, text }: { kind: string; name?: string; text?: string }) {
+type EffectTag = { tagId: string; params: Record<string, number | string> | null };
+
+function Effect({
+  kind,
+  name,
+  text,
+  tags,
+  analyzed,
+  reminder,
+}: {
+  kind: string;
+  name?: string;
+  text?: string;
+  tags?: EffectTag[];
+  analyzed: boolean;
+  /** Rules text with no effect row is reminder text (ex rule, Supporter rule), which isn't tagged. */
+  reminder?: boolean;
+}) {
   return (
     <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
       <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">{kind}</div>
       {name && <div className="mt-1 font-medium">{name}</div>}
       {text && <p className="mt-1 text-sm leading-relaxed">{text}</p>}
+      {analyzed && tags && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {tags.length ? (
+            tags.map((t) => <TagChip key={t.tagId} id={t.tagId} params={t.params} />)
+          ) : (
+            <span className="text-xs text-neutral-500">No capability tags</span>
+          )}
+        </div>
+      )}
+      {analyzed && !tags && reminder && <div className="mt-2 text-xs text-neutral-500">Reminder text, not tagged</div>}
     </div>
   );
 }

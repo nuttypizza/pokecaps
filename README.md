@@ -8,22 +8,26 @@ Card data comes from [PokemonTCG/pokemon-tcg-data](https://github.com/PokemonTCG
 
 | Phase | What | State |
 | --- | --- | --- |
-| 1. Foundation | Database, card sync, daily sync job, browse and filter | **This release** |
-| 2. Rule tagging | Effect extraction, capability taxonomy, rule-based tagger | Next |
-| 3. LLM and review | Claude classifier, confidence scores, review queue, manual edits | Planned |
+| 1. Foundation | Database, card sync, daily sync job, browse and filter | Done |
+| 2. Rule tagging | Effect extraction, capability taxonomy, rule-based tagger, capability filters | **This release** |
+| 3. LLM and review | Claude classifier, confidence scores, review queue, manual edits | Next |
 | 4. Polish | Taxonomy editor, errata handling, logins for a public site | Planned |
 
 ## How it works
 
 ```
-pokemon-tcg-data ──► scripts/sync.ts ──► Postgres ──► Next.js app
-  (GitHub, free)              daily via GitHub Actions
+pokemon-tcg-data ──► scripts/sync.ts ──► scripts/analyze.ts ──► Postgres ──► Next.js app
+  (GitHub, free)        daily via GitHub Actions (sync, then analyze)
 ```
 
 - **`sets`**: every set, with an `in_scope` flag (see `src/sync/scope.ts`).
 - **`raw_cards`**: each card's JSON as received, plus a hash of its gameplay fields. A changed hash marks the card `needs_analysis` for phase 2. Legality, rarity and price changes don't.
 - **`cards`**: flattened columns used for filtering and sorting.
 - **`sync_runs`**: one row per sync with counts of new, changed and unchanged cards.
+
+- **`taxonomy_tags`**: the capability list. It's defined in `src/analysis/taxonomy.ts` and copied to the database on each analysis run.
+- **`effects`**: one row per ability, attack and rules text on each in-scope card, with a hash of its normalized wording (lowercase, the card's own name replaced by `{self}`). Reprints share a hash, so they share tags. Reminder text such as the Pokémon ex rule is skipped.
+- **`machine_tags`**: capability tags per effect hash, with source (`rule` now, `llm` in phase 3), analyzer version, confidence and params such as cards drawn or damage healed.
 
 Later phases add their own tables. Sync and analysis never write to the table that holds your manual edits.
 
@@ -37,6 +41,15 @@ npm run sync -- --source=github
 ```
 
 The default source is the GitHub data repo: free, no key needed. The [Pokémon TCG API](https://pokemontcg.io) is deprecated (closed to new sign-ups; existing keys stop working on March 1, 2027) and its successor, Scrydex, is paid. The API client is kept behind `SYNC_SOURCE=api` or `auto`. If the data repo stops receiving new sets, a second free source such as TCGdex can be added in `src/sync/sources.ts`.
+
+### Capability tagging
+
+```bash
+npm run analyze               # cards that are new or changed since the last run
+npm run analyze -- --all      # every in-scope card
+```
+
+The rule tagger (`src/analysis/rules.ts`) is a list of patterns over effect text. It tags about 90% of distinct in-scope effect texts; most of the rest are one-off effects that phase 3's Claude classifier will handle. To change a rule, edit it, add a test case with the real card text to `src/analysis/rules.test.ts`, and bump `RULES_VERSION`; the next analysis run re-tags every card.
 
 ## Local development
 

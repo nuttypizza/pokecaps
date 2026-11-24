@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CardGrid } from "@/components/card-grid";
 import { FilterForm } from "@/components/filter-form";
 import { parseFilters, toQuery } from "@/lib/filters";
-import { filterOptions, lastSync, PAGE_SIZE, searchCards } from "@/lib/queries";
+import { filterOptions, lastSync, PAGE_SIZE, searchCards, tagCounts, tagsForCards } from "@/lib/queries";
 
 export default function Home({ searchParams }: PageProps<"/">) {
   return (
@@ -15,11 +15,13 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
 async function Browse({ searchParams }: { searchParams: PageProps<"/">["searchParams"] }) {
   const filters = parseFilters(await searchParams);
-  const [{ rows, total }, options, sync] = await Promise.all([
+  const [{ rows, total }, options, sync, counts] = await Promise.all([
     searchCards(filters),
     filterOptions(filters.scope),
     lastSync(),
+    tagCounts(filters.scope),
   ]);
+  const tags = await tagsForCards(rows.map((r) => r.id));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const first = total === 0 ? 0 : (filters.page - 1) * PAGE_SIZE + 1;
   const last = Math.min(total, filters.page * PAGE_SIZE);
@@ -27,7 +29,7 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/">["searchPa
   return (
     <div className="grid gap-8 md:grid-cols-[260px_1fr]">
       <aside>
-        <FilterForm filters={filters} sets={options.sets} subtypes={options.subtypes} />
+        <FilterForm filters={filters} sets={options.sets} subtypes={options.subtypes} tagCounts={counts} />
         {sync?.finishedAt && (
           <p className="mt-6 text-xs text-neutral-500">
             Card data last synced {sync.finishedAt.toISOString().slice(0, 10)}.
@@ -48,7 +50,7 @@ async function Browse({ searchParams }: { searchParams: PageProps<"/">["searchPa
         {rows.length === 0 ? (
           <p className="text-neutral-500">No cards match these filters.</p>
         ) : (
-          <CardGrid cards={rows} />
+          <CardGrid cards={rows} tags={tags} />
         )}
         {pages > 1 && (
           <nav className="mt-8 flex items-center justify-center gap-4 text-sm" aria-label="Pages">

@@ -48,3 +48,6 @@ jobs:
           else
             npm run sync
           fi
+      - name: Tag capabilities
+        if: steps.config.outputs.skip != 'true'
+        run: npm run analyze

@@ -15,7 +15,13 @@ const { postgres } = parseEnv(config, ["DATABASE_URL"]);
 
 // Reuse one pool across hot reloads in development.
 const globalForDb = globalThis as unknown as { pokecapsPool?: Pool };
-const pool = globalForDb.pokecapsPool ?? new Pool({ connectionString: postgres.databaseUrl, max: 5 });
+const pool = globalForDb.pokecapsPool ?? new Pool({
+    connectionString: postgres.databaseUrl,
+    max: 5,
+    // Fail fast instead of leaving pages on "Loading…" when the database is unreachable.
+    connectionTimeoutMillis: 10_000,
+    query_timeout: 20_000,
+  });
 if (process.env.NODE_ENV !== "production") globalForDb.pokecapsPool = pool;
 attachDatabasePool(pool);
 
