@@ -2,7 +2,7 @@
 
 Browse, sort and filter Pokémon TCG cards by the gameplay capabilities they provide (draw, search, energy acceleration, healing, switching, disruption and more).
 
-Card data comes from the [Pokémon TCG API](https://pokemontcg.io). The app covers the **Scarlet & Violet block and every series released after it** (Mega Evolution onward); older sets are synced too and can be shown with a checkbox.
+Card data comes from [PokemonTCG/pokemon-tcg-data](https://github.com/PokemonTCG/pokemon-tcg-data), the open data set behind the Pokémon TCG API. The app covers the **Scarlet & Violet block and every series released after it** (Mega Evolution onward); older sets are synced too and can be shown with a checkbox.
 
 ## Status
 
@@ -16,8 +16,8 @@ Card data comes from the [Pokémon TCG API](https://pokemontcg.io). The app cove
 ## How it works
 
 ```
-Pokémon TCG API ──► scripts/sync.ts ──► Postgres ──► Next.js app
- (fallback: GitHub data repo)   daily via GitHub Actions
+pokemon-tcg-data ──► scripts/sync.ts ──► Postgres ──► Next.js app
+  (GitHub, free)              daily via GitHub Actions
 ```
 
 - **`sets`**: every set, with an `in_scope` flag (see `src/sync/scope.ts`).
@@ -36,8 +36,7 @@ npm run sync -- --scope-only  # only fetch cards for in-scope sets
 npm run sync -- --source=github
 ```
 
-`SYNC_SOURCE=auto` (the default) uses the API and falls back to the
-[maintainers' data repo](https://github.com/PokemonTCG/pokemon-tcg-data) for any set the API fails to serve. The API returns frequent 5xx errors without a key, so set `POKEMONTCG_API_KEY`.
+The default source is the GitHub data repo: free, no key needed. The [Pokémon TCG API](https://pokemontcg.io) is deprecated (closed to new sign-ups; existing keys stop working on March 1, 2027) and its successor, Scrydex, is paid. The API client is kept behind `SYNC_SOURCE=api` or `auto`. If the data repo stops receiving new sets, a second free source such as TCGdex can be added in `src/sync/sources.ts`.
 
 ## Local development
 
@@ -56,8 +55,7 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 ## Deploying on free tiers
 
 1. **Database**: create a free Postgres on [Neon](https://neon.tech) (scales to zero when idle). Copy its connection string.
-2. **API key**: get a free key at [dev.pokemontcg.io](https://dev.pokemontcg.io) (20,000 requests a day).
-3. **GitHub secrets** (Settings → Secrets and variables → Actions): add `DATABASE_URL` and `POKEMONTCG_API_KEY`. Run the **Sync card data** workflow once by hand to load everything. After that it runs daily at 09:00 UTC, with a full refresh on Sundays.
-4. **App**: import the repo on [Vercel](https://vercel.com) and set `DATABASE_URL`. Pages are cached for an hour, card images load straight from the card image CDN, and visitors never trigger API or LLM calls, so traffic adds no usage cost.
+2. **GitHub secret** (Settings → Secrets and variables → Actions): add `DATABASE_URL`. Run the **Sync card data** workflow once by hand to load everything. After that it runs daily at 09:00 UTC, with a full refresh on Sundays.
+3. **App**: import the repo on [Vercel](https://vercel.com) and set `DATABASE_URL`. Pages are cached for an hour, card images load straight from the card image CDN, and visitors never trigger data or LLM calls, so traffic adds no usage cost.
 
 Vercel's free plan is for non-commercial use. Check that before running ads or charging for the public site.

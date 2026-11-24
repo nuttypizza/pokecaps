@@ -21,7 +21,6 @@ jobs:
     timeout-minutes: 60
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      POKEMONTCG_API_KEY: ${{ secrets.POKEMONTCG_API_KEY }}
     steps:
       - name: Check configuration
         id: config

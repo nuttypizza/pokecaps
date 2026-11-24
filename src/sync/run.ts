@@ -9,7 +9,10 @@ import type { ApiSet, CardSource } from "./types";
 type Db = NodePgDatabase<typeof schema>;
 
 export interface SyncOptions {
-  /** "auto" tries the API and falls back to GitHub if the API can't list sets. */
+  /**
+   * "github" (default) reads the PokemonTCG/pokemon-tcg-data repo. "api" uses the Pokémon TCG API,
+   * which is deprecated (keys stop working 2027-03-01). "auto" tries the API, falling back to GitHub.
+   */
   source?: "api" | "github" | "auto";
   /** Re-fetch every set's cards, not just new or changed sets. */
   full?: boolean;
@@ -68,11 +71,11 @@ export async function runSync(db: Db, opts: SyncOptions = {}): Promise<SyncResul
   const now = opts.now ?? new Date();
   const recentDays = opts.recentDays ?? 60;
 
-  const [run] = await db.insert(schema.syncRuns).values({ source: opts.source ?? "auto" }).returning({ id: schema.syncRuns.id });
+  const [run] = await db.insert(schema.syncRuns).values({ source: opts.source ?? "github" }).returning({ id: schema.syncRuns.id });
   const result: SyncResult = { runId: run.id, source: "", setsSeen: 0, setsFetched: 0, cardsNew: 0, cardsChanged: 0, cardsUnchanged: 0, setsFromFallback: 0 };
 
   try {
-    const { source, fallback, sets } = await pickSource(opts.source ?? "auto", log);
+    const { source, fallback, sets } = await pickSource(opts.source ?? "github", log);
     result.source = source.name;
     result.setsSeen = sets.length;
     const scope = computeScope(sets);
