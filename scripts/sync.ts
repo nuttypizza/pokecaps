@@ -15,7 +15,7 @@ async function main() {
   const args = process.argv.slice(2);
   const flag = (name: string) => args.includes(`--${name}`);
   const value = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=")[1];
-  const source = (value("source") ?? process.env.SYNC_SOURCE ?? "auto") as "api" | "github" | "auto";
+  const source = (value("source") ?? process.env.SYNC_SOURCE ?? "github") as "api" | "github" | "auto";
 
   const { db, sql } = await import("../src/db/client");
   const { runSync } = await import("../src/sync/run");
