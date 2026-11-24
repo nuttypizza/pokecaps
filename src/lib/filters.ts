@@ -1,3 +1,5 @@
+import { TAG_IDS } from "@/analysis/taxonomy";
+
 /** Browse filters, parsed from and written back to the URL so every search can be bookmarked. */
 
 export const SUPERTYPES = ["Pokémon", "Trainer", "Energy"] as const;
@@ -25,12 +27,18 @@ export interface Filters {
   sort: Sort;
   /** "all" includes sets released before the Scarlet & Violet scope. */
   scope: "" | "all";
+  /** Capability tag ids (see src/analysis/taxonomy.ts). */
+  cap: string[];
+  /** "any": card has at least one of `cap`; "all": card has every one. */
+  capMode: "any" | "all";
   page: number;
 }
 
 type Raw = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+const many = (v: string | string[] | undefined) =>
+  (Array.isArray(v) ? v : v ? [v] : []).flatMap((x) => x.split(",")).map((x) => x.trim()).filter(Boolean);
 const int = (v: string | string[] | undefined) => {
   const n = Number.parseInt(one(v), 10);
   return Number.isFinite(n) && n >= 0 ? n : null;
@@ -50,6 +58,8 @@ export function parseFilters(raw: Raw): Filters {
     legal: legal === "standard" || legal === "expanded" ? legal : "",
     sort: sort in SORTS ? (sort as Sort) : "newest",
     scope: one(raw.scope) === "all" ? "all" : "",
+    cap: [...new Set(many(raw.cap).filter((id) => TAG_IDS.has(id)))].slice(0, 12),
+    capMode: one(raw.capMode) === "all" ? "all" : "any",
     page: Math.max(1, int(raw.page) ?? 1),
   };
 }
@@ -61,6 +71,11 @@ export function toQuery(f: Partial<Filters>): string {
     if (v === null || v === undefined || v === "") continue;
     if (k === "sort" && v === "newest") continue;
     if (k === "page" && v === 1) continue;
+    if (k === "capMode" && v === "any") continue;
+    if (Array.isArray(v)) {
+      for (const x of v) p.append(k, String(x));
+      continue;
+    }
     p.set(k, String(v));
   }
   const s = p.toString();

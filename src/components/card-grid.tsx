@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sortTags, TagChip } from "./tag-chips";
 
 interface CardTile {
   id: string;
@@ -11,7 +12,9 @@ interface CardTile {
   setName: string;
 }
 
-export function CardGrid({ cards }: { cards: CardTile[] }) {
+const MAX_CHIPS = 4;
+
+export function CardGrid({ cards, tags = {} }: { cards: CardTile[]; tags?: Record<string, string[]> }) {
   return (
     <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {cards.map((c) => (
@@ -40,8 +43,23 @@ export function CardGrid({ cards }: { cards: CardTile[] }) {
             </div>
             <div className="text-xs text-neutral-500">{[c.supertype, ...c.subtypes].join(" · ")}</div>
           </Link>
+          <Chips ids={tags[c.id] ?? []} />
         </li>
       ))}
     </ul>
+  );
+}
+
+function Chips({ ids }: { ids: string[] }) {
+  if (!ids.length) return null;
+  const sorted = sortTags(ids).filter((id) => !id.startsWith("drawback.") && id !== "trait.coin");
+  const shown = sorted.slice(0, MAX_CHIPS);
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {shown.map((id) => (
+        <TagChip key={id} id={id} />
+      ))}
+      {sorted.length > shown.length && <span className="text-[11px] text-neutral-500">+{sorted.length - shown.length}</span>}
+    </div>
   );
 }

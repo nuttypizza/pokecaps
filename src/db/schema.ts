@@ -5,6 +5,8 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
+  uniqueIndex,
   serial,
   text,
   timestamp,
@@ -101,6 +103,66 @@ export const syncRuns = pgTable("sync_runs", {
   cardsUnchanged: integer("cards_unchanged").notNull().default(0),
   error: text("error"),
 });
+
+/**
+ * Capability taxonomy. Source of truth is src/analysis/taxonomy.ts; the
+ * analysis job upserts it here so the app can join and label tags.
+ */
+export const taxonomyTags = pgTable("taxonomy_tags", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  label: text("label").notNull(),
+  description: text("description").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  retired: boolean("retired").notNull().default(false),
+});
+
+/**
+ * One row per ability, attack, or rules/trainer text on a card. `textHash`
+ * identifies the normalized wording, so reprints share their tags.
+ */
+export const effects = pgTable(
+  "effects",
+  {
+    id: text("id").primaryKey(),
+    cardId: text("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"ability" | "attack" | "rule">().notNull(),
+    position: integer("position").notNull(),
+    name: text("name"),
+    text: text("text").notNull(),
+    cost: text("cost").array().notNull().default([]),
+    damage: text("damage"),
+    textHash: text("text_hash").notNull(),
+  },
+  (t) => [index("effects_card_idx").on(t.cardId), index("effects_hash_idx").on(t.textHash)],
+);
+
+/**
+ * Tags produced by the analyzers, keyed by effect text hash. Re-analysis
+ * replaces rows of the same `source`; manual edits live elsewhere (phase 3).
+ */
+export const machineTags = pgTable(
+  "machine_tags",
+  {
+    id: serial("id").primaryKey(),
+    textHash: text("text_hash").notNull(),
+    tagId: text("tag_id")
+      .notNull()
+      .references(() => taxonomyTags.id),
+    source: text("source").$type<"rule" | "llm">().notNull(),
+    analyzerVersion: text("analyzer_version").notNull(),
+    confidence: real("confidence").notNull(),
+    params: jsonb("params").$type<Record<string, number | string>>(),
+    rationale: text("rationale"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("machine_tags_hash_tag_source_uq").on(t.textHash, t.tagId, t.source),
+    index("machine_tags_tag_idx").on(t.tagId),
+  ],
+);
 
 export type SetRow = typeof sets.$inferSelect;
 export type CardRow = typeof cards.$inferSelect;
